@@ -93,4 +93,75 @@ def search_walmart(query):
             title = item.get('product_title') or item.get('title') or item.get('name') or "No Title"
             
             # Smart find for Link
-            link = item.get('
+            link = item.get('product_url') or item.get('url') or item.get('link') or "#"
+            
+            # Smart find for Price
+            price_raw = item.get('product_price') or item.get('price') or item.get('salePrice') or 0
+            
+            products.append({
+                "Store": "Walmart",
+                "Product": title,
+                "Price": clean_price(price_raw),
+                "Link": link
+            })
+            
+        return products
+    except Exception as e:
+        print(f"Walmart Error: {e}")
+        return []
+
+# ---------------------------------------------------------
+# THE WEBSITE LAYOUT
+# ---------------------------------------------------------
+st.set_page_config(page_title="Holiday Deal Finder", page_icon="🎁", layout="wide")
+
+st.title("🎁 Holiday Deal Finder")
+st.markdown("Compare prices across **Amazon** and **Walmart** instantly.")
+
+# Input Section
+col1, col2 = st.columns([3, 1])
+with col1:
+    product_name = st.text_input("What product are you looking for?", placeholder="e.g. PS5, Lego Star Wars, Air Fryer")
+with col2:
+    st.write("") 
+    st.write("") 
+    search_button = st.button("Find Deals", type="primary", use_container_width=True)
+
+if search_button:
+    if not product_name:
+        st.warning("Please enter a product name first!")
+    elif API_KEY == "YOUR_RAPIDAPI_KEY_HERE":
+        st.error("❌ You forgot to paste your API Key in the code!")
+    else:
+        with st.spinner(f"Scanning stores for '{product_name}'..."):
+            
+            amazon_data = search_amazon(product_name)
+            walmart_data = search_walmart(product_name)
+            
+            # Debugging Alerts
+            if not amazon_data:
+                st.warning("Amazon returned 0 results.")
+            if not walmart_data:
+                st.warning("Walmart returned 0 results.")
+
+            all_data = amazon_data + walmart_data
+
+            if all_data:
+                df = pd.DataFrame(all_data)
+                
+                # Sort by price (Low to High)
+                df = df.sort_values(by="Price") 
+                
+                st.success(f"Found {len(all_data)} items!")
+                
+                st.dataframe(
+                    df, 
+                    column_config={
+                        "Link": st.column_config.LinkColumn("Product Link"),
+                        "Price": st.column_config.NumberColumn("Price", format="$%.2f")
+                    },
+                    hide_index=True,
+                    use_container_width=True
+                )
+            else:
+                st.error("No products found. Check your API subscription or try a different keyword.")
