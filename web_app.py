@@ -15,7 +15,7 @@ except:
     API_KEY = "YOUR_RAPIDAPI_KEY_HERE"
 
 AMAZON_URL = "https://real-time-amazon-data.p.rapidapi.com/search"
-WALMART_URL = "https://walmart-data.p.rapidapi.com/search"
+WALMART_URL = "https://walmart-data.p.rapidapi.com/walmart/search"
 
 # ---------------------------------------------------------
 # FUNCTIONS
