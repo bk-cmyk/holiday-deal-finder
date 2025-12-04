@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import pandas as pd
+import json
 
 # ---------------------------------------------------------
 # CONFIGURATION
@@ -10,6 +11,7 @@ try:
 except:
     API_KEY = "YOUR_RAPIDAPI_KEY_HERE"
 
+# UPDATED: Verified Endpoints
 AMAZON_URL = "https://real-time-amazon-data.p.rapidapi.com/search"
 WALMART_URL = "https://realtime-walmart-data.p.rapidapi.com/search"
 
@@ -32,7 +34,6 @@ def search_amazon(query):
     if API_KEY == "YOUR_RAPIDAPI_KEY_HERE":
         return []
         
-    # Amazon API uses 'query'
     querystring = {"query": query, "country": "US", "sort_by": "RELEVANCE"}
     headers = {
         "X-RapidAPI-Key": API_KEY,
@@ -52,14 +53,14 @@ def search_amazon(query):
                     "Link": item.get('product_url', '#')
                 })
         return products
-    except Exception as e:
+    except:
         return []
 
 def search_walmart(query):
     if API_KEY == "YOUR_RAPIDAPI_KEY_HERE":
         return []
 
-    # FIXED: Changed 'query' to 'keyword' based on the error message
+    # FIX: The API demands 'keyword', not 'query'
     querystring = {"keyword": query, "page": "1", "country": "US", "sort_by": "best_match"}
     
     headers = {
@@ -70,12 +71,22 @@ def search_walmart(query):
         response = requests.get(WALMART_URL, headers=headers, params=querystring)
         data = response.json()
         
+        # --- DIAGNOSTIC BLOCK ---
+        # If the standard "data -> products" path fails, we print the raw JSON
+        # so you can see EXACTLY what the API sent back.
+        if 'data' not in data or 'products' not in data['data']:
+            st.warning(f"⚠️ Walmart Debug: API connected but returned unexpected structure.")
+            with st.expander("🔎 Click here to see the RAW Walmart data"):
+                st.json(data)
+
         products = []
         
-        # This API returns data -> products -> list
+        # "Smart Parse" - tries to find the list of items
         items_list = []
         if 'data' in data and 'products' in data['data']:
             items_list = data['data']['products']
+        elif 'data' in data:
+            items_list = data['data']
             
         for item in items_list[:10]:
             products.append({
@@ -87,7 +98,7 @@ def search_walmart(query):
             
         return products
     except Exception as e:
-        st.error(f"Walmart Error: {e}")
+        st.error(f"Walmart Connection Error: {e}")
         return []
 
 # ---------------------------------------------------------
@@ -98,7 +109,7 @@ st.title("🎁 Holiday Deal Finder")
 
 col1, col2 = st.columns([3, 1])
 with col1:
-    product_name = st.text_input("What product are you looking for?", placeholder="e.g. PS5, Lego Star Wars")
+    product_name = st.text_input("What product are you looking for?", placeholder="e.g. Lego Star Wars")
 with col2:
     st.write("") 
     st.write("") 
@@ -115,12 +126,16 @@ if search_button:
             amazon_data = search_amazon(product_name)
             walmart_data = search_walmart(product_name)
             
+            if not amazon_data:
+                st.warning("Amazon returned 0 results.")
+            if not walmart_data:
+                st.warning("Walmart returned 0 results (Check the Debug Expander above).")
+
             all_data = amazon_data + walmart_data
 
             if all_data:
                 df = pd.DataFrame(all_data).sort_values(by="Price")
                 st.success(f"Found {len(all_data)} items!")
-                
                 st.dataframe(
                     df, 
                     column_config={
@@ -131,4 +146,4 @@ if search_button:
                     use_container_width=True
                 )
             else:
-                st.error("No results found. (If Amazon worked but Walmart failed, check if the Walmart API is down)")
+                st.error("No results found.")
